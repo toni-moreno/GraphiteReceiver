@@ -18,8 +18,13 @@ import java.text.SimpleDateFormat;
 import java.util.Iterator;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import com.vmware.vim25.ManagedObjectReference;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -42,9 +47,10 @@ public class MetricsReceiver implements StatsListReceiver,
     private PrintStream writer;
     private Socket client;
     PrintWriter out;
-    private Properties props;
+    private final Properties props;
     private int freq;
     private MOREFRetriever mor;
+    private final ConcurrentMap<String, String> clusterMap;
     
 
     /**
@@ -73,6 +79,7 @@ public class MetricsReceiver implements StatsListReceiver,
     public MetricsReceiver(String name, Properties props) {
         this.name = name;
         this.props = props;
+        this.clusterMap = new ConcurrentHashMap<String,String>();
     }
 
     /**
@@ -89,6 +96,41 @@ public class MetricsReceiver implements StatsListReceiver,
      */
     public String getName() {
         return name;
+    }
+    
+    private void getClusterMap(){
+        ManagedObjectReference rootMOREF = this.context.getConnection().getRootFolder();
+
+        if (rootMOREF != null) {
+            ManagedObjectReference rootViewMOREF = this.context.getMorefRetriever().createContainerView(rootMOREF, Arrays.asList("ClusterComputeResource"), true);
+            if (rootViewMOREF != null) {
+                Map<String, ManagedObjectReference> clusterMOREFMap = this.context.getMorefRetriever().getNameMOREFMap("root", rootViewMOREF, "ManagedEntity");
+                if (clusterMOREFMap != null) {
+                    logger.info((Object)("Number of MOREFs in ClusterComputerReource Container: " + clusterMOREFMap.size()));
+                    for (Map.Entry pair : clusterMOREFMap.entrySet()) {
+                        String cluster_name=pair.getKey().toString();
+                        logger.info("CLUSTER : "+ cluster_name + " = " + pair.getValue());
+                        ManagedObjectReference clusterMOREF = this.context.getMorefRetriever().getEntityMOREFByName(cluster_name);
+                        if(clusterMOREF!=null){
+                            ManagedObjectReference clusterViewMOREF = this.context.getMorefRetriever().createContainerView(clusterMOREF, Arrays.asList("HostSystem","VirtualMachine"), true);
+                            if (clusterViewMOREF != null) {
+                                Map<String, ManagedObjectReference> entityMOREFMap = this.context.getMorefRetriever().getNameMOREFMap(cluster_name, clusterViewMOREF, "ManagedEntity");
+                                if (entityMOREFMap != null) {
+                                    logger.info((Object)("Number of MOREFs in: "+cluster_name+" Container is: " + clusterMOREFMap.size()));
+                                    for (Map.Entry epair : entityMOREFMap.entrySet()) {
+                                        String entity_name=epair.getKey().toString();
+                                        this.clusterMap.put(cluster_name,entity_name);
+                                        logger.info("FINAL MAP CLUSTER : "+ cluster_name + " => " + entity_name);
+                                    }
+                                }
+                                
+                            }   
+                        }
+                    }
+                 }
+            }
+        }
+        
     }
 
     /**
@@ -122,6 +164,8 @@ public class MetricsReceiver implements StatsListReceiver,
         
         if(only_one_sample_x_period!= null && !only_one_sample_x_period.isEmpty())
             this.only_one_sample_x_period=Boolean.valueOf(only_one_sample_x_period);
+        
+        getClusterMap();
     }
     
     private void sendAllMetrics(String node,PerfMetricSet metricSet){
