@@ -102,24 +102,27 @@ public class MetricsReceiver implements StatsListReceiver,
         ManagedObjectReference rootMOREF = this.context.getConnection().getRootFolder();
 
         if (rootMOREF != null) {
-            ManagedObjectReference rootViewMOREF = this.context.getMorefRetriever().createContainerView(rootMOREF, Arrays.asList("ClusterComputeResource"), true);
+            //Arrays.asList("ClusterComputeResource","Datacenter","Folder"),
+            ManagedObjectReference rootViewMOREF = this.context.getMorefRetriever().createContainerView(rootMOREF, Arrays.asList("ClusterComputeResource","Datacenter"), true);
             if (rootViewMOREF != null) {
                 Map<String, ManagedObjectReference> clusterMOREFMap = this.context.getMorefRetriever().getNameMOREFMap("root", rootViewMOREF, "ManagedEntity");
                 if (clusterMOREFMap != null) {
+                    // primer bucle
                     logger.info((Object)("Number of MOREFs in ClusterComputerReource Container: " + clusterMOREFMap.size()));
                     for (Map.Entry pair : clusterMOREFMap.entrySet()) {
                         String cluster_name=pair.getKey().toString();
-                        logger.info("CLUSTER : "+ cluster_name + " = " + pair.getValue());
+                        //ManagedObjectReference moref=pair.getValue();
+                        logger.info("CLUSTER : "+ cluster_name + " = " + pair.getValue() +  " MoRef Class : "+ pair.getKey().getClass());
                         ManagedObjectReference clusterMOREF = this.context.getMorefRetriever().getEntityMOREFByName(cluster_name);
                         if(clusterMOREF!=null){
                             ManagedObjectReference clusterViewMOREF = this.context.getMorefRetriever().createContainerView(clusterMOREF, Arrays.asList("HostSystem","VirtualMachine"), true);
                             if (clusterViewMOREF != null) {
                                 Map<String, ManagedObjectReference> entityMOREFMap = this.context.getMorefRetriever().getNameMOREFMap(cluster_name, clusterViewMOREF, "ManagedEntity");
                                 if (entityMOREFMap != null) {
-                                    logger.info((Object)("Number of MOREFs in: "+cluster_name+" Container is: " + clusterMOREFMap.size()));
+                                    logger.info((Object)("Number of MOREFs in: "+cluster_name+" Container is: " + entityMOREFMap.size()));
                                     for (Map.Entry epair : entityMOREFMap.entrySet()) {
                                         String entity_name=epair.getKey().toString();
-                                        this.clusterMap.put(cluster_name,entity_name);
+                                        this.clusterMap.put(entity_name,cluster_name);
                                         logger.info("FINAL MAP CLUSTER : "+ cluster_name + " => " + entity_name);
                                     }
                                 }
