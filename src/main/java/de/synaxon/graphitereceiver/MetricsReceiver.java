@@ -99,40 +99,60 @@ public class MetricsReceiver implements StatsListReceiver,
     }
     
     private void getClusterMap(){
+        //ROOT-MOR
         ManagedObjectReference rootMOREF = this.context.getConnection().getRootFolder();
 
         if (rootMOREF != null) {
-            //Arrays.asList("ClusterComputeResource","Datacenter","Folder"),
-            ManagedObjectReference rootViewMOREF = this.context.getMorefRetriever().createContainerView(rootMOREF, Arrays.asList("ClusterComputeResource","Datacenter"), true);
+            //ROOTVIEW
+            ManagedObjectReference rootViewMOREF = this.context.getMorefRetriever().createContainerView(rootMOREF, Arrays.asList("Datacenter"), false);
             if (rootViewMOREF != null) {
-                Map<String, ManagedObjectReference> clusterMOREFMap = this.context.getMorefRetriever().getNameMOREFMap("root", rootViewMOREF, "ManagedEntity");
-                if (clusterMOREFMap != null) {
-                    // primer bucle
-                    logger.info((Object)("Number of MOREFs in ClusterComputerReource Container: " + clusterMOREFMap.size()));
-                    for (Map.Entry pair : clusterMOREFMap.entrySet()) {
-                        String cluster_name=pair.getKey().toString();
-                        //ManagedObjectReference moref=pair.getValue();
-                        logger.info("CLUSTER : "+ cluster_name + " = " + pair.getValue() +  " MoRef Class : "+ pair.getKey().getClass());
-                        ManagedObjectReference clusterMOREF = this.context.getMorefRetriever().getEntityMOREFByName(cluster_name);
-                        if(clusterMOREF!=null){
-                            ManagedObjectReference clusterViewMOREF = this.context.getMorefRetriever().createContainerView(clusterMOREF, Arrays.asList("HostSystem","VirtualMachine"), true);
-                            if (clusterViewMOREF != null) {
-                                Map<String, ManagedObjectReference> entityMOREFMap = this.context.getMorefRetriever().getNameMOREFMap(cluster_name, clusterViewMOREF, "ManagedEntity");
-                                if (entityMOREFMap != null) {
-                                    logger.info((Object)("Number of MOREFs in: "+cluster_name+" Container is: " + entityMOREFMap.size()));
-                                    for (Map.Entry epair : entityMOREFMap.entrySet()) {
-                                        String entity_name=epair.getKey().toString();
-                                        this.clusterMap.put(entity_name,cluster_name);
-                                        logger.info("FINAL MAP CLUSTER : "+ cluster_name + " => " + entity_name);
-                                    }
-                                }
-                                
-                            }   
-                        }
-                    }
-                 }
-            }
-        }
+                //MAP DATACENTERS
+                Map<String, ManagedObjectReference> datacenterMOREFMap = this.context.getMorefRetriever().getNameMOREFMap("root", rootViewMOREF, "ManagedEntity");
+                if (datacenterMOREFMap != null) {
+                    // DATACENTERS LOOP 
+                    logger.info((Object)("Number of MOREFs in DataCenter Container: " + datacenterMOREFMap.size()));
+                    for (Map.Entry dpair : datacenterMOREFMap.entrySet()) {
+                        String datacenter_name=dpair.getKey().toString();
+                        //logger.info("DATACENTER: "+ datacenter_name + " = " + dpair.getValue() );
+                        //DATACENTER MOR
+                        ManagedObjectReference datacenterMOREF =this.context.getMorefRetriever().getEntityMOREFByName(datacenter_name);
+                        if (datacenterMOREF != null){
+                            //DATACENTER VIEW
+                            ManagedObjectReference datacenterViewMOREF = this.context.getMorefRetriever().createContainerView(datacenterMOREF, Arrays.asList("ClusterComputeResource"), true);
+                            if (datacenterViewMOREF != null) {
+                                // MAP CLUSTERS ON DATACENTER
+                                Map<String, ManagedObjectReference> clusterMOREFMap = this.context.getMorefRetriever().getNameMOREFMap(datacenter_name, datacenterViewMOREF, "ManagedEntity");
+                                if(clusterMOREFMap != null){
+                                    logger.info((Object)("Number of CLUSTERS in datacenter : " + datacenter_name + " = " + clusterMOREFMap.size()));
+
+                                    // CLUSTER LOOP INSIDE DATACENTER
+                                    for (Map.Entry cpair : clusterMOREFMap.entrySet()) {
+                                        String cluster_name=cpair.getKey().toString();
+                                        //ManagedObjectReference moref=pair.getValue();
+                                        //logger.info("DATACENTER : "+datacenter_name+" CLUSTER : "+ cluster_name + " = " + cpair.getValue() );
+                                        ManagedObjectReference clusterMOREF = this.context.getMorefRetriever().getEntityMOREFByName(cluster_name);
+                                        if(clusterMOREF!=null){
+                                            ManagedObjectReference clusterViewMOREF = this.context.getMorefRetriever().createContainerView(clusterMOREF, Arrays.asList("HostSystem","VirtualMachine"),true);
+                                            if (clusterViewMOREF != null) {
+                                                Map<String, ManagedObjectReference> entityMOREFMap = this.context.getMorefRetriever().getNameMOREFMap(cluster_name, clusterViewMOREF, "ManagedEntity");
+                                                if (entityMOREFMap != null) {
+                                                    logger.info((Object)("Number of ENTITIES in DATACENTER : " +datacenter_name+" CLUSTER : "+cluster_name+" = " + entityMOREFMap.size()));
+                                                    for (Map.Entry epair : entityMOREFMap.entrySet()) {
+                                                        String entity_name=epair.getKey().toString();
+                                                        this.clusterMap.put(entity_name,cluster_name);
+                                                        logger.info("FINAL MAP : DATACENTER : "+ datacenter_name +" CLUSTER : "+ cluster_name + " => " + entity_name + " mor " +mor);
+                                                    }//for -> entity
+                                                }//if(entiryMOREFMap
+                                            }//if(clusterVIewMOREF
+                                        }//if(clusterMOREF!=null)
+                                    }//for -> cluster
+                                }//if(clusterMOREFMap)
+                             }//if(datacenterViewMOREF)
+                        }//if(datacencterMOREF)
+                    }//for->datacenter
+                }//if(datacenterMOREFMap
+            }//if(rootViewMOREF)
+        }//if(rootMOREF)
         
     }
 
